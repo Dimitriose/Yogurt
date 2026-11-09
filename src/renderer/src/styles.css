@@ -1,0 +1,1815 @@
+/**
+ * Palette taken from the icon: yogurt cream, fruit-pulp pink, strawberry as the
+ * accent and the label's blue as the secondary colour.
+ *
+ * Two shades of pink in distinct roles, on purpose. The pastel (`--pink-soft`,
+ * `--pink-band`) is decorative: selected-item background, bands, tags.
+ * The strong one (`--accent`) is the only one that carries white text or
+ * becomes a link, because pastel pink on white does not get past ~3:1
+ * contrast — pretty as a fill, illegible as a word.
+ */
+:root {
+  /* Backgrounds: cream with a streak of pink, from lightest to most saturated. */
+  --bg: #fffbfc;
+  --bg-raised: #fdf4f7;
+  --bg-input: #fbedf2;
+  --bg-hover: #f9e6ed;
+  --bg-active: #f6dde7;
+
+  --border: #f4dee6;
+  --border-strong: #e8c4d3;
+
+  /* Text in a purplish brown, not black: it sits better on cream. */
+  --text: #33262b;
+  --text-dim: #6b565f;
+  /* Measured against --bg-active, the darkest background in the UI (the
+     selected item in the list) — that is where secondary text is tightest.
+     They guarantee 4.5:1 there and have room to spare on lighter backgrounds. */
+  --text-faint: #73616a;
+
+  /* Strong pink — the only one that takes white text or becomes a link. 4.51:1
+     on the worst background, 5.77:1 for white text on top. */
+  --accent: #b13964;
+  --accent-hover: #9c3057;
+  --accent-ring: #f5a8c4;
+
+  /* Pastel pink — decorative. */
+  --pink-soft: #fbe7ee;
+  --pink-band: #f59cb5;
+
+  --rec: #dc3a5e;
+  --ok: #347a58;
+  --ok-soft: #e6f4ec;
+  --warn: #b0740f;
+  --warn-soft: #fdf1dc;
+  --danger: #c4374f;
+  --danger-soft: #fdeaed;
+
+  /* Blue from the icon's label, for what is informative rather than an action. */
+  --info: #3d7fbf;
+  --info-soft: #e8f1fb;
+
+  --radius: 8px;
+  --shadow-sm: 0 1px 2px rgba(122, 74, 92, 0.06);
+  --shadow-lg: 0 16px 44px rgba(122, 74, 92, 0.18);
+  --font: 'Segoe UI Variable', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --mono: 'Cascadia Code', 'Consolas', ui-monospace, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+::selection {
+  background: var(--accent-ring);
+  color: #2b1c21;
+}
+
+/* ---------- Layout ---------- */
+
+.app {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  height: 100%;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg-raised);
+  border-right: 1px solid var(--border);
+  padding: 14px 12px;
+  gap: 10px;
+}
+
+.content {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  /* Column so the suggestion banner stacks above the view instead of sitting
+     beside it. The view has `flex: 1` and takes the rest. */
+  flex-direction: column;
+}
+
+.view {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.view-center {
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+}
+
+/* ---------- Sidebar ---------- */
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 4px 6px;
+}
+
+.brand-mark {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  flex: none;
+  /* The PNG already has a white background in the corners; the radius clips it without a halo. */
+  object-fit: cover;
+}
+
+.brand-name {
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  font-size: 16px;
+}
+
+.btn-new {
+  width: 100%;
+}
+
+.search-wrap {
+  padding: 2px 0;
+}
+
+.search,
+.input {
+  width: 100%;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.12s;
+}
+
+.search:focus,
+.input:focus {
+  border-color: var(--accent);
+}
+
+.search::placeholder,
+.input::placeholder {
+  color: var(--text-faint);
+}
+
+.input-mono {
+  font-family: var(--mono);
+}
+
+.meeting-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 -4px;
+  padding: 0 4px;
+}
+
+.meeting-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius);
+  color: var(--text);
+  padding: 8px 10px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.1s;
+}
+
+.meeting-item:hover {
+  background: var(--bg-hover);
+}
+
+.meeting-item.active {
+  background: var(--bg-active);
+  /* Pink stripe on the left: marks the selection without needing a stronger
+     background, which on a light theme would close the contrast with the text. */
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.meeting-item-title {
+  font-size: 13px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meeting-item-meta {
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+
+.empty-hint {
+  color: var(--text-faint);
+  font-size: 12.5px;
+  padding: 12px 10px;
+  margin: 0;
+}
+
+.sidebar-footer {
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+
+.sidebar-footer .btn {
+  width: 100%;
+  justify-content: flex-start;
+}
+
+.dot-warn {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--warn);
+  margin-left: auto;
+}
+
+/* ---------- Buttons ---------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  padding: 8px 14px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, opacity 0.12s;
+  white-space: nowrap;
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.btn-sm {
+  padding: 5px 10px;
+  font-size: 12.5px;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.btn-primary:not(:disabled):hover {
+  background: var(--accent-hover);
+}
+
+.btn-ghost {
+  background: transparent;
+  border-color: var(--border-strong);
+  color: var(--text-dim);
+}
+
+.btn-ghost:not(:disabled):hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+/* Selected state of the Settings button. Follows the same vocabulary as the
+   active list item: soft pink background, accent text. */
+.btn-ghost.active {
+  background: var(--pink-soft);
+  border-color: var(--accent-ring);
+  color: var(--accent);
+}
+
+.btn-danger {
+  background: transparent;
+  border-color: #edc2ca;
+  color: var(--danger);
+}
+
+.btn-danger:hover {
+  background: var(--danger-soft);
+  color: #a82c42;
+}
+
+.btn-record {
+  background: var(--rec);
+  color: #fff;
+  padding: 11px 20px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.btn-record:hover {
+  background: #ec5375;
+}
+
+.btn-stop {
+  background: var(--rec);
+  color: #fff;
+}
+
+.btn-stop:hover {
+  background: #ec5375;
+}
+
+.link {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ---------- Setup / start card ---------- */
+
+.setup-card {
+  max-width: 520px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.setup-card h1 {
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.setup-card p {
+  margin: 0;
+  color: var(--text-dim);
+}
+
+.input-title {
+  font-size: 15px;
+  padding: 10px 12px;
+}
+
+.source-summary {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
+
+.source-summary .on {
+  color: var(--ok);
+}
+
+.source-summary .off {
+  color: var(--text-faint);
+}
+
+/* ---------- Recording bar ---------- */
+
+.view-record {
+  padding: 0;
+}
+
+.record-bar {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-raised);
+  flex-wrap: wrap;
+}
+
+.record-status {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.clock {
+  font-family: var(--mono);
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.rec-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--rec);
+  flex: none;
+}
+
+.rec-dot.live {
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+.rec-dot.paused {
+  background: var(--warn);
+  animation: none;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.meters {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 180px;
+}
+
+.meter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.meter-off {
+  opacity: 0.35;
+}
+
+.meter-label {
+  width: 48px;
+  text-align: right;
+}
+
+.meter-track {
+  flex: 1;
+  height: 4px;
+  background: var(--bg-input);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.meter-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--ok), var(--warn));
+  border-radius: 2px;
+  transition: width 0.08s linear;
+}
+
+.record-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+/* ---------- Recording panes ---------- */
+
+.record-panes {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+
+.pane-transcript {
+  border-left: 1px solid var(--border);
+  /* One step pinker than the notes pane: separates the two sides without
+     needing a stronger border. */
+  background: var(--bg-raised);
+}
+
+.pane-title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0;
+  padding: 12px 20px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+}
+
+.pane-hint {
+  font-size: 11px;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-faint);
+  opacity: 0.8;
+}
+
+.notes-editor {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  resize: none;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1.7;
+  padding: 4px 20px 20px;
+}
+
+.notes-editor::placeholder {
+  color: var(--text-faint);
+  opacity: 0.7;
+}
+
+.notes-editor-sm {
+  min-height: 110px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.6;
+  flex: none;
+}
+
+.transcript {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 20px 20px;
+  position: relative;
+}
+
+.transcript-full {
+  padding: 20px 32px 40px;
+  max-width: 860px;
+}
+
+.transcript-line {
+  margin: 0 0 10px;
+  font-size: 13.5px;
+  color: var(--text);
+  line-height: 1.6;
+}
+
+.ts {
+  display: inline-block;
+  min-width: 46px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-right: 8px;
+  vertical-align: baseline;
+}
+
+.transcript-empty {
+  padding-top: 8px;
+}
+
+.scroll-pin {
+  position: sticky;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  padding: 5px 14px;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* ---------- Alerts ---------- */
+
+.alert {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 20px;
+  font-size: 12.5px;
+  border-bottom: 1px solid var(--border);
+}
+
+.alert-warn {
+  background: var(--warn-soft);
+  color: #7d5209;
+}
+
+.alert-error {
+  background: var(--danger-soft);
+  color: #9c2438;
+  border-radius: var(--radius);
+  border: 1px solid #f0cdd4;
+}
+
+.alert-info {
+  background: var(--info-soft);
+  color: #2b5f92;
+  border-radius: var(--radius);
+  border: 1px solid #cfe2f5;
+}
+
+.alert .link {
+  margin-left: auto;
+  color: inherit;
+  opacity: 0.75;
+}
+
+.block-issues {
+  border-radius: var(--radius);
+  border: 1px solid #f0dcb4;
+}
+
+/* Meeting warnings: at most two lines, the rest goes to the "View details"
+   .txt. Without the limit, a long error pushed the tabs and the "…" menu off
+   the screen. */
+.alert-compact {
+  align-items: flex-start;
+  line-height: 1.5;
+}
+
+.alert-compact .alert-text {
+  flex: 1;
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.alert-compact .alert-more {
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+/* ---------- Meeting ---------- */
+
+.view-meeting {
+  overflow: hidden;
+}
+
+.meeting-header {
+  padding: 22px 32px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.meeting-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  cursor: text;
+  border-radius: 4px;
+}
+
+.meeting-title:hover {
+  background: var(--bg-hover);
+  box-shadow: 0 0 0 6px var(--bg-hover);
+}
+
+.meeting-meta {
+  display: flex;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--text-faint);
+}
+
+.meeting-meta span:not(:last-child)::after {
+  content: ' ·';
+}
+
+.toolbar {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-top: 4px;
+}
+
+.tabs {
+  display: flex;
+  gap: 2px;
+}
+
+.tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-faint);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: color 0.12s, border-color 0.12s;
+}
+
+.tab:hover {
+  color: var(--text-dim);
+}
+
+.tab.active {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+.toolbar-actions {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+  padding-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.meeting-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.notes-tab {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 32px 20px;
+  gap: 10px;
+}
+
+.notes-tab-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 12.5px;
+}
+
+.notes-tab-actions {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.notes-tab .notes-editor {
+  padding: 0;
+  max-width: 760px;
+}
+
+/* ---------- Prose (markdown summary) ---------- */
+
+.prose {
+  padding: 26px 32px 60px;
+  max-width: 760px;
+  font-size: 14.5px;
+  line-height: 1.7;
+}
+
+.prose h2 {
+  font-size: 15px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  margin: 30px 0 10px;
+}
+
+.prose h2:first-child {
+  margin-top: 0;
+}
+
+.prose h3 {
+  font-size: 14.5px;
+  font-weight: 600;
+  margin: 22px 0 8px;
+}
+
+.prose p {
+  margin: 0 0 12px;
+}
+
+.prose ul {
+  margin: 0 0 14px;
+  padding-left: 20px;
+}
+
+.prose li {
+  margin-bottom: 6px;
+}
+
+.prose .md-tasks {
+  list-style: none;
+  padding-left: 0;
+}
+
+.prose .md-tasks li {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.md-check {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  font-size: 11px;
+  line-height: 13px;
+  text-align: center;
+  color: var(--ok);
+  margin-top: 3px;
+}
+
+.prose .md-done {
+  color: var(--text-faint);
+}
+
+.prose strong {
+  font-weight: 620;
+  color: #1f1418;
+}
+
+.prose code {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+.prose blockquote {
+  margin: 0 0 14px;
+  padding-left: 14px;
+  border-left: 2px solid var(--border-strong);
+  color: var(--text-dim);
+}
+
+.prose hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 26px 0;
+}
+
+/* ---------- Settings ---------- */
+
+.view-settings {
+  overflow-y: auto;
+  padding: 0 32px 60px;
+  max-width: 720px;
+}
+
+/* The tabs are sticky: under Meeting the list of sections is long, and losing
+   the navigation while scrolling would force a trip back to the top to switch tabs. */
+.settings-header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--bg);
+  padding: 26px 0 0;
+  margin-bottom: 4px;
+}
+
+.view-settings h1 {
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  margin: 0 0 10px;
+}
+
+.settings-header .tabs {
+  border-bottom: 1px solid var(--border);
+}
+
+/* The tab's first section does not need the border: the tabs already draw it. */
+.view-settings .settings-section:first-of-type {
+  border-top: none;
+}
+
+.settings-section {
+  border-top: 1px solid var(--border);
+  padding: 20px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.settings-section h2 {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+  margin: 0;
+}
+
+.settings-section p {
+  margin: 0;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.field > span {
+  color: var(--text-dim);
+}
+
+.field small {
+  color: var(--text-faint);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.check {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  cursor: pointer;
+  font-size: 13.5px;
+}
+
+.check input {
+  margin-top: 3px;
+  accent-color: var(--accent);
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+
+.check span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.check small {
+  color: var(--text-faint);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+input[type='range'] {
+  accent-color: var(--accent);
+  max-width: 320px;
+}
+
+select.input {
+  max-width: 380px;
+  cursor: pointer;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 11.5px;
+  font-weight: 500;
+}
+
+.pill-ok {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.pill-warn {
+  background: var(--warn-soft);
+  color: var(--warn);
+  align-self: flex-start;
+}
+
+.status {
+  font-size: 12.5px;
+  color: var(--text-dim);
+  margin: 0;
+}
+
+/* ---------- Utilities ---------- */
+
+.muted {
+  color: var(--text-dim);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  align-self: flex-start;
+  margin-top: 3px;
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 10.5px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.badge-transcribing,
+.badge-summarizing {
+  background: var(--info-soft);
+  color: var(--info);
+}
+
+.badge-recording {
+  background: var(--danger-soft);
+  color: var(--rec);
+}
+
+.badge-error {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.spinner {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex: none;
+}
+
+.spinner-lg {
+  width: 22px;
+  height: 22px;
+  border-width: 2px;
+  color: var(--accent);
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.toast {
+  position: fixed;
+  bottom: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 9px 16px;
+  font-size: 13px;
+  box-shadow: var(--shadow-lg);
+  z-index: 20;
+}
+
+/* ---------- Speakers ---------- */
+
+.tab-count {
+  display: inline-block;
+  margin-left: 6px;
+  background: var(--bg-input);
+  border-radius: 999px;
+  padding: 0 5px;
+  font-size: 10.5px;
+  color: var(--text-faint);
+}
+
+.speaker-panel {
+  padding: 22px 32px 60px;
+  max-width: 780px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.alert-inline {
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  line-height: 1.6;
+}
+
+.speaker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.speaker-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.speaker-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.speaker-tag {
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.speaker-tag.anon {
+  background: var(--warn-soft);
+  color: #7d5209;
+}
+
+.speaker-tag.named {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.speaker-tag.assigned {
+  background: var(--info-soft);
+  color: #2b5f92;
+}
+
+/* "Me" uses the brand pink: it is the user's own channel. */
+.speaker-tag.self {
+  background: var(--pink-soft);
+  color: var(--accent);
+}
+
+.speaker-card-named {
+  border-color: #cfe2f5;
+}
+
+.speaker-origin {
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+
+.speaker-summary {
+  font-size: 13px;
+  color: var(--text-dim);
+  padding-bottom: 2px;
+}
+
+.speaker-inline.assigned {
+  background: var(--info-soft);
+  color: #2b5f92;
+}
+
+.profile-date {
+  font-size: 11.5px;
+}
+
+.speaker-stats {
+  font-size: 12px;
+  margin-left: auto;
+}
+
+.speaker-sample {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--text);
+  line-height: 1.6;
+}
+
+.speaker-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* ---------- Bulk speaker selection ---------- */
+
+/* The bar is sticky: the list of labels is long (59 in a real meeting), and
+   losing the action while scrolling would force a trip back to the top after
+   every selection. */
+.speaker-bulk {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg-active);
+  /* Accent, not `--accent-ring`, by measurement: the bar's background differs
+     from the page by only 1.25:1, so the border is what actually delimits it —
+     and the bar is sticky, passing over scrolling content. `--accent-ring` gave
+     1.46:1 against the inner background; `--accent` gives 4.51:1. */
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.speaker-bulk-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.speaker-bulk-head .btn {
+  margin-left: auto;
+}
+
+.speaker-bulk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.speaker-bulk-actions .input {
+  flex: 1;
+  min-width: 180px;
+}
+
+/* Larger click target than the checkbox default: ticking dozens of cards is
+   the main interaction on this screen. */
+.speaker-pick {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.speaker-same {
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.quick-names {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  background: var(--pink-soft);
+  border: 1px solid var(--accent-ring);
+  border-radius: 999px;
+  color: var(--accent);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  padding: 3px 12px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.chip:not(:disabled):hover {
+  background: var(--bg-active);
+}
+
+.chip:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.speaker-actions .input {
+  max-width: 260px;
+}
+
+.speaker-recognized {
+  margin: 0;
+  font-size: 12.5px;
+}
+
+.speaker-msg {
+  margin: 0;
+  font-size: 12.5px;
+}
+
+.speaker-msg.ok {
+  color: var(--ok);
+}
+
+.speaker-msg.err {
+  color: var(--danger);
+}
+
+.speaker-limit {
+  font-size: 12.5px;
+}
+
+/* Inline speaker tag in the transcript. */
+.speaker-inline {
+  display: inline-block;
+  margin-right: 8px;
+  border-radius: 3px;
+  padding: 0 5px;
+  font-size: 11px;
+  font-weight: 600;
+  vertical-align: baseline;
+}
+
+.speaker-inline.anon {
+  background: var(--warn-soft);
+  color: #7d5209;
+}
+
+.speaker-inline.named {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.profile-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.profile-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 7px 12px;
+}
+
+.profile-check {
+  flex: 1;
+  font-size: 13.5px;
+}
+
+.settings-section code {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0 4px;
+}
+
+/* ---------- Start/stop recording suggestion ---------- */
+
+.suggest-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: none;
+  padding: 11px 20px;
+  background: var(--pink-soft);
+  border-bottom: 1px solid var(--accent-ring);
+  font-size: 13.5px;
+  color: var(--text);
+}
+
+.suggest-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex: none;
+  animation: pulse 1.8s ease-in-out infinite;
+}
+
+.suggest-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+  flex: none;
+}
+
+/* ---------- Timestamped notes ---------- */
+
+.note-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  max-width: 760px;
+}
+
+.note-line {
+  margin: 0 0 8px;
+  font-size: 14.5px;
+  line-height: 1.65;
+}
+
+.ts-empty {
+  opacity: 0.4;
+}
+
+.note-gap {
+  height: 12px;
+}
+
+/* ---------- Microphone calibration ---------- */
+
+.mic-cal {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  background: var(--bg-raised);
+}
+
+.mic-cal-meter {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.meter-scale {
+  position: relative;
+  height: 18px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.meter-level {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--border-strong);
+  transition: width 0.04s linear;
+}
+
+/* Only coloured when above the cut-off: the feedback is "this counts as speech". */
+.meter-level.above {
+  background: linear-gradient(90deg, var(--pink-band), var(--accent));
+}
+
+.meter-peak {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--text-faint);
+  opacity: 0.65;
+}
+
+.meter-floor {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  width: 1px;
+  background: var(--info);
+  opacity: 0.8;
+}
+
+.meter-cut {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 3px;
+  background: var(--accent);
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px var(--bg);
+}
+
+.meter-ticks {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-faint);
+}
+
+.mic-cal-slider {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+}
+
+.mic-cal-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.mic-cal-nums {
+  margin-left: auto;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.mic-cal-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cal-step strong {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--info);
+  color: #fff;
+  font-size: 12.5px;
+  flex: none;
+}
+
+.cal-ok {
+  background: var(--ok-soft);
+  color: #1f5c40;
+  border: 1px solid #c2e2d1;
+  border-radius: var(--radius);
+}
+
+/* ---------- Three-dot menu ---------- */
+
+.menu-wrap {
+  position: relative;
+}
+
+.menu-trigger {
+  font-size: 17px;
+  line-height: 1;
+  padding: 3px 11px;
+  letter-spacing: 0.06em;
+}
+
+.menu {
+  position: absolute;
+  top: calc(100% + 5px);
+  right: 0;
+  min-width: 258px;
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  padding: 5px;
+  box-shadow: var(--shadow-lg);
+  z-index: 40;
+}
+
+.menu-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  padding: 7px 10px;
+  font-family: inherit;
+  font-size: 13.5px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.menu-item:not(:disabled):hover {
+  background: var(--bg-hover);
+}
+
+.menu-item:disabled {
+  opacity: 0.42;
+  cursor: default;
+}
+
+.menu-item small {
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+
+.menu-item.danger {
+  color: var(--danger);
+}
+
+.menu-item.danger:not(:disabled):hover {
+  background: var(--danger-soft);
+}
+
+.menu-sep {
+  height: 1px;
+  background: var(--border);
+  margin: 5px 8px;
+}
+
+.busy-note {
+  font-size: 12.5px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.speaker-regen {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid var(--accent-ring);
+  background: var(--pink-soft);
+  border-radius: var(--radius);
+  padding: 11px 14px;
+  font-size: 13px;
+}
+
+.speaker-regen button {
+  margin-left: auto;
+  flex: none;
+}
+
+/* ---------- Confirmation modal ---------- */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  /* Warm, translucent veil: darkening to near-black would clash with the theme. */
+  background: rgba(74, 40, 52, 0.34);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 60;
+  backdrop-filter: blur(2px);
+}
+
+.modal {
+  width: 100%;
+  max-width: 440px;
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  padding: 20px 22px;
+  box-shadow: var(--shadow-lg);
+}
+
+.modal h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  color: var(--text);
+}
+
+.modal p {
+  margin: 0 0 18px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--text-dim);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.btn-danger-solid {
+  background: var(--danger);
+  color: #fff;
+}
+
+.btn-danger-solid:hover {
+  background: #ab2c43;
+}
+
+/* ---------- Error screen ---------- */
+
+.crash {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 32px;
+  background: var(--bg);
+}
+
+.crash-card {
+  max-width: 620px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.crash-card h1 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.crash-card p {
+  margin: 0;
+}
+
+.crash-detail {
+  margin: 0;
+  max-height: 260px;
+  overflow: auto;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: #9c2438;
+  white-space: pre-wrap;
+}
+
+.crash-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* ---------- Scrollbars ---------- */
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #e6c3d1;
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #d6a6b9;
+  background-clip: padding-box;
+}
+
+@media (max-width: 1000px) {
+  .app {
+    grid-template-columns: 230px 1fr;
+  }
+  .record-panes {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr 1fr;
+  }
+  .pane-transcript {
+    border-left: none;
+    border-top: 1px solid var(--border);
+  }
+}

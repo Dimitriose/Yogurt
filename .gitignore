@@ -1,0 +1,10 @@
+node_modules/
+out/
+dist/
+release/
+*.log
+# TypeScript incremental caches — regenerated on every build.
+*.tsbuildinfo
+.DS_Store
+.env
+.env.local

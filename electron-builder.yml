@@ -1,0 +1,62 @@
+appId: com.yogurt.app
+productName: Yogurt
+directories:
+  buildResources: build
+  output: release
+files:
+  - '!**/.vscode/*'
+  - '!src/*'
+  - '!electron.vite.config.{js,ts,mjs,cjs}'
+  - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+  - '!{.eslintrc,.prettierrc,.gitignore,README.md}'
+  - '!release/*'
+# The icon must be a real file on disk at run time: since
+# `signAndEditExecutable` is off, it isn't embedded in the .exe, so the window
+# loads it explicitly (see src/main/index.ts).
+extraResources:
+  - from: resources/icon.png
+    to: icon.png
+  - from: resources/tray.png
+    to: tray.png
+  - from: resources/tray-recording.png
+    to: tray-recording.png
+# Windows is the primary target: system audio capture relies on WASAPI
+# loopback, which Electron exposes via `audio: 'loopback'`. On macOS this would
+# require a virtual audio driver (BlackHole/Loopback) — see README.
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  artifactName: ${productName}-${version}-setup.${ext}
+  # Off because the build doesn't pass without it on this machine.
+  #
+  # The sign/edit-executable step downloads the `winCodeSign` toolchain, whose
+  # package contains macOS symlinks (libcrypto.dylib, libssl.dylib). Creating a
+  # symlink on Windows requires SeCreateSymbolicLinkPrivilege, which a regular
+  # user account doesn't have — so extraction fails and the build dies, even
+  # with no intention of signing anything.
+  #
+  # Cost: electron-builder embeds neither icon nor metadata in the .exe. The
+  # build/afterPack.cjs hook does that instead, with the npm `rcedit` package
+  # (no symlinks). If this line ever goes away, the hook can go with it.
+  signAndEditExecutable: false
+  icon: build/icon.ico
+afterPack: build/afterPack.cjs
+# Fuses: locks burned into the Electron binary. They prevent Yogurt.exe from
+# being used as a generic Node (ELECTRON_RUN_AS_NODE, NODE_OPTIONS, --inspect)
+# and the app's code from being swapped outside app.asar without the integrity
+# check noticing.
+electronFuses:
+  runAsNode: false
+  enableCookieEncryption: true
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  enableEmbeddedAsarIntegrityValidation: true
+  onlyLoadAppFromAsar: true
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  shortcutName: Yogurt
+publish: null
