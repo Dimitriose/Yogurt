@@ -11,6 +11,36 @@ affiliated with it), but local: the audio, notes, transcripts and minutes live
 as files in your user folder. The only thing that leaves the machine is the
 calls to the OpenAI API.
 
+<p align="center">
+  <img src="docs/images/demo.gif" alt="Taking notes while Yogurt records, then the finished summary and the transcript with named speakers" width="860">
+</p>
+
+## Download
+
+Get the Windows installer from the
+[**Releases page**](https://github.com/Dimitriose/Yogurt/releases), run it (no
+admin rights needed) and enter your OpenAI API key in **Settings**. The
+installer isn't code-signed, so Windows shows *"Windows protected your PC"*:
+click **More info → Run anyway**.
+
+You need Windows 10 or 11 and an OpenAI API key with credits. The app shows
+the cost of each meeting.
+
+**Trying it out?** Feedback is very welcome: open an
+[issue](https://github.com/Dimitriose/Yogurt/issues/new/choose) for bugs, or
+start a thread in [Discussions](https://github.com/Dimitriose/Yogurt/discussions)
+for anything else.
+
+## Screenshots
+
+| Recording: you take notes, Yogurt listens | The summary, built around your notes |
+| --- | --- |
+| ![Recording view](docs/images/recording.png) | ![Summary view](docs/images/summary.png) |
+| **Transcript with named speakers** | **Naming speakers** |
+| ![Transcript view](docs/images/transcript.png) | ![Speakers view](docs/images/speakers.png) |
+
+*Screenshots use a fictional meeting.*
+
 > **Privacy and security:** what goes to OpenAI, what stays on disk and how the
 > key is stored are covered in [SECURITY.md](SECURITY.md). Let participants
 > know before you record a meeting.

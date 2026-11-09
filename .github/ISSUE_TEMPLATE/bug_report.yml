@@ -1,0 +1,46 @@
+name: Bug report
+description: Something doesn't work as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for testing Yogurt! Please **don't paste your OpenAI API key** or private meeting content here.
+        For security problems, use **Security → Report a vulnerability** instead of a public issue.
+  - type: input
+    id: version
+    attributes:
+      label: Yogurt version
+      description: Shown at the bottom of Settings.
+      placeholder: "0.5.0"
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      placeholder: "Windows 11 23H2"
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: error
+    attributes:
+      label: Error details
+      description: If the meeting shows an error, click **View details** and paste the relevant part of the text file (remove anything private).
+      render: text
+  - type: dropdown
+    id: setup
+    attributes:
+      label: What were you recording?
+      multiple: true
+      options:
+        - Teams
+        - Zoom
+        - Google Meet
+        - In-person (microphone only)
+        - Other
