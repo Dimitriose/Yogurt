@@ -65,7 +65,23 @@ npm run dev         # dev with HMR
 npm run typecheck   # types only
 npm run build       # typecheck + bundles
 npm run dist        # installer in release/
+npm audit           # must be 0 vulnerabilities before a release
 ```
+
+### Running a second copy next to the installed Yogurt
+
+The app takes a single-instance lock. If Yogurt is installed and running (even
+hidden in the tray), a dev or test copy quits immediately with no message.
+**Don't kill the user's instance** — give the test copy its own profile:
+
+```powershell
+node_modules\electron\dist\electron.exe . --user-data-dir=$env:TEMP\yogurt-test --remote-debugging-port=9333
+```
+
+The separate `--user-data-dir` gets its own lock and its own `settings.json` and
+`meetings\`, so tests never touch real meetings. The debugging port lets a
+script drive the window over the Chrome DevTools Protocol (that's how the
+screenshots and the language checks were done — see section 4).
 
 ---
 
@@ -261,6 +277,97 @@ with TLS inspection. The two internal workarounds (buffering the body, removing
 `content-length`) were verified against the real API — changing them requires
 re-verifying. See section 4.
 
+### Speaker labels are stored in Portuguese, on purpose
+
+`SELF_SPEAKER = 'Eu'` and `OTHERS_SPEAKER = 'Outros'` (`shared/types.ts`) are
+**data values** written to `transcript.json`, not display text. They are
+translated only at display time (`channelLabel()` in `shared/transcript.ts`,
+via `msgs().system.speakers`). Changing them to `'Me'`/`'Others'` would orphan
+every existing meeting: the renamed-speaker map, the voice profiles and the
+"is this me?" checks all compare against the stored value. `channelLabel()`
+also accepts `'Others'` for safety.
+
+### Every string lives in both catalogs
+
+`src/shared/i18n/` has four namespaces (`ui`, `settingsUi`, `main`, `system`).
+The `en` object defines the shape and `pt` is typed `typeof en`, so a key missing
+in one language is a type error — keep it that way, don't loosen it with
+`Partial`. Strings are read through `msgs()` **at call time**, never captured in
+a module-level constant, or they freeze in whatever language was active at
+import.
+
+The main process resolves the language (`resolveLang(pref, app.getLocale())`)
+inside `getPublicSettings()`, which is the **first** call in `whenReady` —
+before the tray menu and dialogs build their strings. Moving it later gives a
+Portuguese tray in an English app.
+
+### The prompts are two full sets, not a translation layer
+
+`PROMPTS.en` and `PROMPTS.pt` in `src/main/prompts.ts`, read via
+`summarySystem()`, `titleSystem()`, `chunkSystem()`. The `pt` set is
+byte-identical to the prompts that were tuned against real meetings; the minutes
+come out in the app's language. Tune each language on its own — a word-for-word
+change copied across usually makes one of them worse.
+
+### The `language` settings key was reused
+
+It used to be the (removed) transcription language; now it's the UI preference
+`auto`/`en`/`pt`. `dropObsoleteLanguage()` in `settings.ts` only drops values
+that aren't valid preferences. Putting `language` back into `OBSOLETE_KEYS`
+erases the user's choice on every startup — that bug shipped once.
+
+### The API key is never stored in plain text
+
+`settings.ts` encrypts with `safeStorage` (Windows DPAPI). If encryption is
+unavailable, saving **throws** instead of falling back to plain text, and a
+legacy `apiKeyPlain` is migrated to the encrypted form on read. The renderer
+never receives the key. Don't add a "fallback" for convenience — it's the
+first thing a security review of a public repo looks for.
+
+### Meeting IDs are validated before they become a path
+
+Everything that turns an ID from the renderer into a folder goes through
+`dirOf()` in `store.ts`, which rejects anything not matching `isMeetingId`
+(`/^[0-9A-Za-z-]{1,80}$/`). Segment indexes and sources go through
+`assertSegment()`. Any new IPC handler that touches disk must use them — a raw
+`join(meetingsDir(), id)` reopens path traversal (`..\..\`).
+
+### The window is sandboxed and can't navigate
+
+`sandbox: true`, `contextIsolation: true`, no `nodeIntegration`; `will-navigate`
+is blocked except for the dev server; `setWindowOpenHandler` only hands
+`http(s)` URLs to `shell.openExternal` (a `file:` URL there would run local
+programs). The preload may only use `contextBridge` and `ipcRenderer`.
+
+### Electron fuses are locked in the executable
+
+`electronFuses` in `electron-builder.yml`: no `ELECTRON_RUN_AS_NODE`, no
+`NODE_OPTIONS`, no `--inspect`, cookie encryption on, app loaded only from an
+`app.asar` whose integrity is checked. Consequences for maintenance:
+
+- The **packaged** `Yogurt.exe` can't be used as a Node runtime for scripts —
+  `ELECTRON_RUN_AS_NODE=1` just opens the app. Use the dev `electron.exe`.
+- Editing files inside `resources\app.asar` after the build breaks the
+  integrity check and the app won't start. Rebuild instead.
+
+### The icon is embedded by our own hook
+
+Because `signAndEditExecutable: false` (section 1), electron-builder doesn't
+touch the `.exe` resources. `build/afterPack.cjs` runs `rcedit` to embed
+`build/icon.ico` and the version metadata. Without it, the `.exe` and the
+desktop shortcut show Electron's default icon. The window and tray icons come
+from `resources/icon.png` at runtime, separately.
+
+### Long errors must not push the tabs off-screen
+
+Error alerts in the meeting view use `.alert-compact` (two lines with
+`-webkit-line-clamp`) plus **View details**, which writes the full text to
+`errors.txt` in the meeting folder and opens it (`meeting:openErrorReport`).
+A full error in the alert pushed the tabs and the `…` menu below the fold,
+making *Regenerate summary* unreachable. API errors are translated first by
+`friendlyError()` in `main/apiErrors.ts` (no credits, bad key, rate limit,
+outage, connection).
+
 ---
 
 ## 3. Tuning knobs
@@ -290,8 +397,8 @@ If behaviour X is wrong, the constant is here.
 | Note timestamp lags behind | `NOTES_SAVE_DEBOUNCE_MS` | `renderer/src/hooks/useRecorder.ts` | `800` |
 
 **The tone and format of the minutes** live in `src/main/prompts.ts`
-(`SUMMARY_SYSTEM`). For company vocabulary without editing code, use *Minutes
-instructions* in Settings.
+(`PROMPTS.en` / `PROMPTS.pt`). For company vocabulary without editing code, use
+*Instructions for the summary* in Settings.
 
 ---
 
@@ -384,6 +491,21 @@ the darkest background in the interface. The first palette failed 4 pairs,
 including the link pink.
 
 Targets: **4.5:1** for text, **3:1** for fills carrying white text.
+
+### Both languages (after adding or changing any string)
+
+Run a second copy with `--remote-debugging-port` (section 1), switch
+Settings → Meeting → App language, and read `document.body.innerText` of each
+screen over CDP. Look for leftovers of the other language — the types catch a
+missing key, not a hard-coded string in a component.
+
+### Screenshots and demo GIF (`docs/images/`)
+
+Generated from a throwaway profile (`--user-data-dir`) filled with a
+**fictional** meeting, window at 1280×800, captured over CDP
+(`Page.captureScreenshot`). Never use a real meeting or a real key for public
+images. The GIF uses a 256-colour palette **per frame**; a shared palette washes
+out the pinks. LinkedIn doesn't animate GIFs — use a screen recording there.
 
 ---
 
@@ -496,6 +618,12 @@ An honest list of what exists but has never been exercised in real use.
 
 **Never tested with real data:**
 
+- **A full English meeting end to end** (recording → transcription → English
+  minutes). The English UI and prompts were checked, the pipeline wasn't —
+  this is why v0.5.0 shipped as a *pre-release*.
+- The tray menu under Electron 45 (mic, system loopback, `MediaRecorder` and the
+  proxy transport were re-verified after the upgrade; the tray wasn't).
+
 - The start/stop suggestion banner in the interface. The main process emits the
   event (verified via logs); that the banner appears and the buttons work, not.
 - The confirmation dialogs with cost, and the dropdown opening and being
@@ -566,12 +694,21 @@ An honest list of what exists but has never been exercised in real use.
   pretending to estimate. Just fill in the real rate per 1M tokens.
 - **Diarization of people sharing the same microphone.** Two people in a room on
   the same device both count as "Me".
-- **macOS.** `audio: 'loopback'` is Windows-specific. There it would require a
-  virtual audio device (BlackHole/Loopback).
 - **Code signing.** The installer isn't signed; SmartScreen warns. With a
-  company certificate, `win.certificateFile` in `electron-builder.yml` — and
-  then it's worth removing `signAndEditExecutable: false` (turn on Developer
-  Mode to warm the cache) so the icon gets into the `.exe` resources.
+  certificate, `win.certificateFile` in `electron-builder.yml` — and then
+  `signAndEditExecutable: false` and `build/afterPack.cjs` can go (turn on
+  Developer Mode to warm the `winCodeSign` cache).
+- **Other AI providers.** Discussed and deliberately **not done** for now. The
+  cheap path, if testers ask: a *base URL* setting next to the key, since the
+  code uses the OpenAI SDK and Azure OpenAI, Groq (Whisper), OpenRouter and
+  Ollama (minutes only, locally) accept the same API. Cost: small. Limitation:
+  speaker identification (`gpt-4o-transcribe-diarize`) is OpenAI-only, so other
+  providers fall back to "Me / Others". The expensive path — per-provider
+  adapters for Deepgram/AssemblyAI (which do diarize) — means a different
+  speaker format, per-provider error translation (`apiErrors.ts` only knows
+  OpenAI's) and per-provider pricing. Do that only for one provider, on demand.
+- **macOS** was evaluated and dropped: no system-audio loopback without a
+  virtual device, and no Mac to build or test on.
 
 ---
 
@@ -604,6 +741,14 @@ Symptom → real cause. All of them cost time in this project.
 | Adding a field broke two files | `CostEstimate` was declared three times |
 | Minutes condense unnecessarily | TPM is **per model**; it was a global setting |
 | Two artefacts with the same version | I repackaged `win-unpacked` without bumping the version of the already-built `setup.exe` |
+| `.exe` and shortcut with Electron's icon | `signAndEditExecutable: false` skips resource editing → `afterPack.cjs` |
+| "Credits ran out" shown as a raw JSON error | The OpenAI error went straight to the UI → `friendlyError()` |
+| Can't reach the `…` menu after an error | A long error in the alert pushed the tabs down → compact alert + `errors.txt` |
+| Language choice lost on every restart | `language` was still in `OBSOLETE_KEYS` from the old audio setting |
+| "Maximum call stack size exceeded" on every meeting | A replace-all turned `dirOf`'s body into `return dirOf(id)` |
+| `npm install` exits 1 after upgrading Electron | The Electron binary download (postinstall) also needs `NODE_OPTIONS=--use-system-ca` |
+| Test copy closes instantly | Single-instance lock held by the installed Yogurt → `--user-data-dir` |
+| `ELECTRON_RUN_AS_NODE` script opens the app | The fuse works as intended; use the dev `electron.exe` |
 
 Two general lessons that kept repeating:
 
@@ -614,3 +759,30 @@ gave a "transport re-validated" that tested the wrong SDK version.
 **Not every strange behaviour is a bug.** The "flickering" diarization and the
 "corrupted" offsets were correct; the defect was in the presentation and in my
 inspection tool. "Fixing" the first would have destroyed good information.
+
+---
+
+## 9. Releasing
+
+1. Bump `version` in `package.json`.
+2. `npm audit` (0 vulnerabilities), `npm run typecheck`, `npm run dist`.
+3. Smoke-test `release\win-unpacked\Yogurt.exe` with an isolated profile:
+   icon, both languages, a short recording, minutes.
+4. `Get-FileHash release\Yogurt-<version>-setup.exe` and put the SHA-256 in
+   the release notes.
+5. GitHub → Releases → *Draft a new release*, tag `v<version>`, attach the
+   installer. Mark it **pre-release** while something in section 7 is untested.
+
+The public repository started from a fresh history (v0.5.0): no test keys, no
+internal names, no screenshots of real meetings. Keep it that way — check
+`git diff --cached` for keys, `%APPDATA%` paths and real names before pushing.
+
+### Version history
+
+- **0.5.0** — first public release. English and Portuguese (UI, dialogs, tray
+  and minutes; follows the Windows language), Electron 33 → 45, sandboxed
+  window, locked fuses, validated IPC, key always encrypted, friendly API
+  errors, compact error alerts with *View details*, custom `.exe` icon, MIT
+  license, README with demo GIF and screenshots, issue templates.
+- **0.4** — custom icon, friendly "credits ran out" message, compact error
+  alerts.
